@@ -1,0 +1,65 @@
+version: '2'
+services:
+  web_mysql:
+    image: "mysql:5.7"
+    restart: always
+    hostname: web_mysql
+    volumes:
+        - "./mysql:/var/lib/mysql"
+        - "./init:/docker-entrypoint-initdb.d/"
+    ports:
+        - "3306:3306"
+
+    # 配置数据库密码
+    environment:
+        MYSQL_ROOT_PASSWORD: "crediteaseitsec"
+
+  web_redis:
+    image: "redis"
+    restart: always
+    hostname: web_redis
+
+     # redis启动命令及密码
+    command: redis-server --requirepass "crediteaseitsec"
+    ports:
+          - "6379:6379"
+
+  # 洞察后端
+  backend:
+    image: "crediteaseitsec/insight2"
+    restart: always
+    ports:
+     - "8001:8000"
+    volumes:
+        - "./backend_app:/app"
+
+    # 后端使用supervisor启动
+    command:
+     - /usr/bin/bash
+     - -c
+     - |
+       supervisord -c /app/insight2/supervisord.conf
+       while true;do sleep 100;done
+    depends_on:
+     - "web_mysql"
+     - "web_redis"
+    links:
+     - "web_mysql"
+     - "web_redis"
+     -
+  # 洞察前端
+  front:
+    image: "crediteaseitsec/insight2_front"
+    restart: always
+
+    # 对外访问端口映射，需要配置，数据库，redis，后端都属于docker 内部访问，可不进行端口映射
+    ports:
+     - "8000:80"
+
+    volumes:
+     - "./front_logs:/logs"
+     - "./front_app:/app"
+
+    depends_on:
+     - "backend"
+
